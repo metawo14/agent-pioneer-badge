@@ -27,7 +27,13 @@ it is not affiliated with or endorsed by Binance.
 - Deploy tx: `0xcc0d295f88ae989544a1394eba716528bcdccf7148375e602cb2de81a4b533f1`
   (gas used 1,495,725; cost ~0.000139 BNB)
 - BscScan: https://bscscan.com/address/0x3eAd2FEa444399ca004033c7512F2C4C1eB0B7F3
-  (source verification: Sourcify — see below)
+- Source verification: **Sourcify exact match** (creation + runtime),
+  verified 2026-11-18 12:21:05 UTC
+  (https://repo.sourcify.dev/contracts/56/0x3eAd2FEa444399ca004033c7512F2C4C1eB0B7F3).
+  Note: Sourcify's automatic forward to Etherscan/BscScan hit the shared
+  daily limit (500 submissions/day) on 18 Nov, so the source is not yet
+  mirrored on BscScan's own Contract tab — direct BscScan verification
+  (needs a BscScan API key) or a re-forward is still pending.
 - Agent ID contract: `0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F`
 
 ## Mint

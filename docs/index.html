@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Pioneer Badge — free mint for Agent ID holders</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0b0b12; color: #f5f5f5; max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+  h1 { color: #f0b90b; }
+  a { color: #f0b90b; }
+  .card { border: 1px solid #333; border-radius: 12px; padding: 16px; margin: 16px 0; background: #14141f; }
+  button { background: #f0b90b; color: #111; border: 0; border-radius: 8px; padding: 12px 20px; font-size: 16px; font-weight: bold; cursor: pointer; }
+  button:disabled { background: #555; color: #999; cursor: not-allowed; }
+  #status { white-space: pre-wrap; word-break: break-all; }
+  #badgeImg { max-width: 256px; display: block; margin: 12px auto; }
+  .muted { color: #aaa; font-size: 14px; }
+  code { word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Agent Pioneer Badge</h1>
+<p>A free ERC-721 badge for Agent ID holders. One badge per Agent ID,
+gas only. No mint fee, no rewards, no returns promised.</p>
+
+<div class="card">
+  <p>Contract (BNB Chain):<br><code id="contractAddr">0x3eAd2FEa444399ca004033c7512F2C4C1eB0B7F3</code><br>
+  <a id="bscscanLink" href="https://bscscan.com/address/0x3eAd2FEa444399ca004033c7512F2C4C1eB0B7F3" target="_blank" rel="noopener">View on BscScan</a> ·
+  <a href="https://github.com/metawo14/agent-pioneer-badge" target="_blank" rel="noopener">Source on GitHub</a></p>
+  <p>Minted so far: <b id="minted">…</b></p>
+</div>
+
+<div class="card">
+  <p><b>Requirements:</b> your wallet must hold an Agent ID
+  (<code>0x60B9…022F</code> on BSC). Connect with your wallet's injected
+  provider (Binance Wallet / MetaMask). No QR login, no approvals —
+  you confirm the mint transaction yourself in your wallet.</p>
+  <button id="connectBtn">Connect wallet</button>
+  <button id="mintBtn" disabled>Mint my free badge</button>
+  <p id="status" class="muted"></p>
+  <img id="badgeImg" alt="" style="display:none">
+</div>
+
+<div class="card muted">
+  <p>How it works: <code>mint()</code> checks
+  <code>balanceOf(you) &gt; 0</code> on the Agent ID contract and that you
+  have not minted before, then mints token #N to you. The contract has
+  no owner, no pause, no fees and no privileged functions — it cannot
+  mint for anyone, freeze anything, or hold funds. Metadata and the
+  badge image live fully on-chain.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.5/dist/ethers.umd.min.js"></script>
+<script>
+const CONTRACT = "0x3eAd2FEa444399ca004033c7512F2C4C1eB0B7F3";
+const AGENT_ID = "0x60B9262456dE011F7d15a54CdD8c48bAaa8B022F";
+const ABI = [
+  "function mint() returns (uint256)",
+  "function totalMinted() view returns (uint256)",
+  "function hasMinted(address) view returns (bool)",
+  "function balanceOf(address) view returns (uint256)",
+  "function tokenURI(uint256) view returns (string)"
+];
+const AGENT_ABI = ["function balanceOf(address) view returns (uint256)"];
+const BSC_RPC = "https://bsc-dataseed.binance.org";
+
+const statusEl = document.getElementById("status");
+const mintedEl = document.getElementById("minted");
+const mintBtn = document.getElementById("mintBtn");
+let provider, signer, account, contract;
+
+function setStatus(t) { statusEl.textContent = t; }
+
+async function refreshMinted() {
+  try {
+    const p = new ethers.JsonRpcProvider(BSC_RPC);
+    const c = new ethers.Contract(CONTRACT, ABI, p);
+    mintedEl.textContent = (await c.totalMinted()).toString();
+  } catch (e) { mintedEl.textContent = "unavailable"; }
+}
+
+async function refreshEligibility() {
+  if (!account) return;
+  const agent = new ethers.Contract(AGENT_ID, AGENT_ABI, provider);
+  const hasId = (await agent.balanceOf(account)) > 0n;
+  const minted = await contract.hasMinted(account);
+  if (!hasId) { setStatus("This wallet holds no Agent ID, so it cannot mint."); mintBtn.disabled = true; }
+  else if (minted) { setStatus("You already minted your badge."); mintBtn.disabled = true; }
+  else { setStatus("Eligible! You hold an Agent ID and have not minted yet."); mintBtn.disabled = false; }
+}
+
+document.getElementById("connectBtn").onclick = async () => {
+  if (!window.ethereum) { setStatus("No injected wallet found. Open this page in Binance Wallet or MetaMask."); return; }
+  try {
+    provider = new ethers.BrowserProvider(window.ethereum);
+    const accounts = await provider.send("eth_requestAccounts", []);
+    account = accounts[0];
+    signer = await provider.getSigner();
+    contract = new ethers.Contract(CONTRACT, ABI, signer);
+    setStatus("Connected: " + account);
+    await refreshEligibility();
+  } catch (e) { setStatus("Connect failed: " + (e.message || e)); }
+};
+
+mintBtn.onclick = async () => {
+  mintBtn.disabled = true;
+  try {
+    setStatus("Sending mint transaction — confirm it in your wallet…");
+    const tx = await contract.mint();
+    setStatus("Transaction sent: " + tx.hash + "\nWaiting for confirmation…");
+    const receipt = await tx.wait();
+    const id = (await contract.totalMinted()).toString();
+    setStatus("Minted! Badge #" + id + " is yours.\nTx: " + tx.hash);
+    const uri = await contract.tokenURI(id);
+    const meta = JSON.parse(atob(uri.slice("data:application/json;base64,".length)));
+    const img = document.getElementById("badgeImg");
+    img.src = meta.image; img.style.display = "block";
+    await refreshMinted();
+  } catch (e) { setStatus("Mint failed: " + (e.message || e)); mintBtn.disabled = false; }
+};
+
+refreshMinted();
+</script>
+</body>
+</html>
